@@ -250,6 +250,22 @@ static void initPluginLibsOnceFunc() {
   pluginCount = pluginCounter;
 }
 
+// The process-wide part of ncclNetInit: find, load and init the plugins.
+ncclResult_t ncclNetWarmup() {
+  pthread_once(&initPluginLibsOnceControl, initPluginLibsOnceFunc);
+  pthread_mutex_lock(&netPluginLock);
+  for (int pluginIndex = 0; pluginIndex < pluginCount; pluginIndex++) {
+    if ((pluginIndex < (pluginCount - NCCL_NET_NUM_INTERNAL_PLUGINS)) && (netPluginLibs[pluginIndex].ncclNetPluginState == ncclNetPluginStateLoadReady)) {
+      NCCLCHECK(ncclNetPluginLoad(&netPluginLibs[pluginIndex]));
+    }
+    if (netPluginLibs[pluginIndex].ncclNetPluginState == ncclNetPluginStateInitReady) {
+      NCCLCHECK(ncclNetPluginInit(&netPluginLibs[pluginIndex]));
+    }
+  }
+  pthread_mutex_unlock(&netPluginLock);
+  return ncclSuccess;
+}
+
 ncclResult_t ncclNetInit(struct ncclComm* comm) {
   bool ncclNetPluginInitialized = false;
   pthread_once(&initPluginLibsOnceControl, initPluginLibsOnceFunc);

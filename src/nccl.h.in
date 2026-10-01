@@ -146,6 +146,12 @@ ncclResult_t pncclGetVersion(int *version);
 ncclResult_t  ncclGetUniqueId(ncclUniqueId* uniqueId);
 ncclResult_t pncclGetUniqueId(ncclUniqueId* uniqueId);
 
+/* Runs the per-process setup (kernel load for cudaDev, NVML, network plugins)
+ * that the first communicator on cudaDev would otherwise pay during creation.
+ * Optional; safe to call more than once. */
+ncclResult_t  ncclWarmup(int cudaDev);
+ncclResult_t pncclWarmup(int cudaDev);
+
 /* Create a new communicator (multi thread/process version) with a configuration
  * set by users. */
 ncclResult_t  ncclCommInitRankConfig(ncclComm_t* comm, int nranks, ncclUniqueId commId, int rank, ncclConfig_t* config);

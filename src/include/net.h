@@ -15,6 +15,7 @@
 typedef char ncclNetHandle_t[NCCL_NET_HANDLE_MAXSIZE];
 
 ncclResult_t ncclNetInit(struct ncclComm* comm);
+ncclResult_t ncclNetWarmup();
 ncclResult_t ncclNetFinalize(struct ncclComm* comm);
 
 // Test whether the current GPU support GPU Direct RDMA.

@@ -1765,6 +1765,28 @@ static void ncclCommInitJobFree(void* _job) {
   free(_job);
 }
 
+// Per-process setup that the first communicator on this device would otherwise
+// pay: kernel load, NVML, and the network plugins. Safe to call more than once.
+NCCL_API(ncclResult_t, ncclWarmup, int cudaDev);
+ncclResult_t ncclWarmup(int cudaDev) {
+  int archMajor, archMinor, maxSharedMem = 0;
+  size_t maxLocalSizeBytes = 0;
+  NCCLCHECK(ncclInit());
+  (void)ncclCudaLibraryInit();
+  CUDACHECK(cudaSetDevice(cudaDev));
+  CUDACHECK(cudaFree(NULL));
+  CUDACHECK(cudaDeviceGetAttribute(&maxSharedMem, cudaDevAttrMaxSharedMemoryPerBlockOptin, cudaDev));
+  CUDACHECK(cudaDeviceGetAttribute(&archMajor, cudaDevAttrComputeCapabilityMajor, cudaDev));
+  CUDACHECK(cudaDeviceGetAttribute(&archMinor, cudaDevAttrComputeCapabilityMinor, cudaDev));
+  NCCLCHECK(ncclInitKernelsForDevice(100*archMajor + 10*archMinor, maxSharedMem, &maxLocalSizeBytes));
+  if (maxLocalSizeBytes > 0 && ncclParamSetStackSize() == 1) {
+    CUDACHECKIGNORE(cudaDeviceSetLimit(cudaLimitStackSize, maxLocalSizeBytes));
+  }
+  NCCLCHECK(ncclNvmlEnsureInitialized());
+  NCCLCHECK(ncclNetWarmup());
+  return ncclSuccess;
+}
+
 static ncclResult_t ncclCommInitRankDev(ncclComm_t* newcomm, int nranks, int nId, ncclUniqueId* commId, int myrank, int cudaDev, ncclConfig_t *config, const char funcName[]) {
   if (nId <= 0 || nId > nranks) {
     WARN("improper usage of ncclCommInitRank: nId = %d, nranks=%d", nId, nranks);
